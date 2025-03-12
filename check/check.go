@@ -18,7 +18,7 @@ type Check struct {
 	m         sync.RWMutex
 }
 
-func (c *Check) Process() {
+func (c *Check) Execute() {
 	c.m.Lock()
 	c.startTime = time.Now()
 	c.m.Unlock()
@@ -54,7 +54,7 @@ func (c *Check) executionTime() time.Duration {
 	if !c.endTime.IsZero() {
 		return RoundDuration(c.endTime.Sub(c.startTime), 2)
 	}
-	return RoundDuration(time.Now().Sub(c.startTime), 2)
+	return RoundDuration(time.Since(c.startTime), 2)
 }
 
 func (c *Check) Result() string {

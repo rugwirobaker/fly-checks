@@ -26,7 +26,7 @@ func TestPassingCheckSuite(t *testing.T) {
 		t.Fatalf("expected suite to contain %d checks, but had %d instead.", 3, len(suite.Checks))
 	}
 
-	suite.Process(context.TODO())
+	suite.Execute(context.TODO())
 
 	if !suite.Passed() {
 		t.Fatalf("expected %s to pass, but didn't", suite.Name)
@@ -50,7 +50,7 @@ func TestFailingCheckSuite(t *testing.T) {
 		t.Fatalf("expected suite to contain %d checks, but had %d instead.", 3, len(suite.Checks))
 	}
 
-	suite.Process(context.TODO())
+	suite.Execute(context.TODO())
 
 	if suite.Passed() {
 		t.Fatalf("expected %s to fail, but it didn't", suite.Name)
@@ -70,7 +70,7 @@ func TestBuildingChecksFromLoop(t *testing.T) {
 		})
 	}
 
-	suite.Process(context.TODO())
+	suite.Execute(context.TODO())
 
 	resultArr := strings.Split(suite.RawResult(), "\n")
 	if len(resultArr) != len(units) {
@@ -105,27 +105,25 @@ func TestFailureDueToTimeout(t *testing.T) {
 	})
 
 	go func() {
-		suite.Process(ctx)
+		suite.Execute(ctx)
 		cancel()
 	}()
 
-	select {
-	case <-ctx.Done():
-		if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			t.Fatalf("expected context to fail with context deadline exceeded. received: %v", ctx.Err())
-		}
-		if suite.Passed() {
-			t.Fatalf("expected suite to fail, but it passed instead.")
-		}
+	<-ctx.Done()
+	if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		t.Fatalf("expected context to fail with context deadline exceeded. received: %v", ctx.Err())
+	}
+	if suite.Passed() {
+		t.Fatalf("expected suite to fail, but it passed instead.")
+	}
 
-		var e any
-		func() {
-			defer func() { e = recover() }()
-			suite.RawResult()
-		}()
-		if e != nil {
-			t.Fatalf("expected RawResult not to panic: %#v", e)
-		}
+	var e any
+	func() {
+		defer func() { e = recover() }()
+		suite.RawResult()
+	}()
+	if e != nil {
+		t.Fatalf("expected RawResult not to panic: %#v", e)
 	}
 }
 
@@ -149,31 +147,29 @@ func TestPartialSuccessWithTimeout(t *testing.T) {
 	})
 
 	go func() {
-		suite.Process(ctx)
+		suite.Execute(ctx)
 		cancel()
 	}()
-	select {
-	case <-ctx.Done():
+	<-ctx.Done()
 
-		if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			t.Fatalf("expected context to deadline, but instead received: %v", ctx.Err())
-		}
-		if suite.Passed() {
-			t.Fatalf("check suite should not have passed...")
-		}
-		if suite.Checks[0].message != "passing" {
-			t.Fatalf("first check should have completed.")
-		}
-		if suite.Checks[1].startTime.IsZero() || !suite.Checks[1].endTime.IsZero() {
-			t.Fatalf("%s should have timed out.", suite.Checks[1].Name)
-		}
-		if !suite.Checks[2].startTime.IsZero() && !suite.Checks[2].endTime.IsZero() {
-			t.Fatalf("%s should not have been processed", suite.Checks[2].Name)
-		}
+	if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		t.Fatalf("expected context to deadline, but instead received: %v", ctx.Err())
+	}
+	if suite.Passed() {
+		t.Fatalf("check suite should not have passed...")
+	}
+	if suite.Checks[0].message != "passing" {
+		t.Fatalf("first check should have completed.")
+	}
+	if suite.Checks[1].startTime.IsZero() || !suite.Checks[1].endTime.IsZero() {
+		t.Fatalf("%s should have timed out.", suite.Checks[1].Name)
+	}
+	if !suite.Checks[2].startTime.IsZero() && !suite.Checks[2].endTime.IsZero() {
+		t.Fatalf("%s should not have been processed", suite.Checks[2].Name)
 	}
 }
 
-func timeoutBeforeChecksHelper(ctx context.Context, suite *CheckSuite) *CheckSuite {
+func timeoutBeforeChecksHelper(_ context.Context, suite *CheckSuite) *CheckSuite {
 	time.Sleep(200 * time.Millisecond)
 
 	suite.AddCheck("setupTimeout-one", func() (string, error) {
@@ -196,17 +192,15 @@ func TestSetupTimeout(t *testing.T) {
 
 	go func(ctx context.Context) {
 		timeoutBeforeChecksHelper(ctx, suite)
-		suite.Process(ctx)
+		suite.Execute(ctx)
 		cancel()
 	}(ctx)
 
-	select {
-	case <-ctx.Done():
+	<-ctx.Done()
 
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			if len(suite.Checks) > 0 {
-				t.Fatalf("No checks should have been added")
-			}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		if len(suite.Checks) > 0 {
+			t.Fatalf("No checks should have been added")
 		}
 	}
 }
@@ -231,7 +225,7 @@ func TestOnCompletionHook(t *testing.T) {
 		return "passing", nil
 	})
 
-	suite.Process(context.TODO())
+	suite.Execute(context.TODO())
 
 	if myVar != target {
 		t.Fatalf("expected value to eq %s, instead got %s", target, myVar)

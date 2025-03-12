@@ -23,25 +23,23 @@ func NewCheckSuite(name string) *CheckSuite {
 	return &CheckSuite{Name: name}
 }
 
-func (h *CheckSuite) Process(parentCtx context.Context) {
+func (h *CheckSuite) Execute(parentCtx context.Context) {
 	ctx, cancel := context.WithCancel(parentCtx)
 	start := time.Now()
 	for _, check := range h.Checks {
-		check.Process()
+		check.Execute()
 	}
 	h.executionTime = RoundDuration(time.Since(start), 2)
 	h.processed = true
 	h.runOnCompletion()
 	cancel()
 
-	select {
-	case <-ctx.Done():
-		// Handle timeout
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			h.executionTime = RoundDuration(time.Since(start), 2)
-			h.processed = true
-			h.runOnCompletion()
-		}
+	<-ctx.Done()
+	// Handle timeout
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		h.executionTime = RoundDuration(time.Since(start), 2)
+		h.processed = true
+		h.runOnCompletion()
 	}
 }
 

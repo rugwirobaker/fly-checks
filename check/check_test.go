@@ -13,7 +13,7 @@ func TestPassingCheck(t *testing.T) {
 		},
 	}
 
-	chk.Process()
+	chk.Execute()
 
 	if !chk.Passed() {
 		t.Fatalf("expected %s to pass, but the test failed with %s", chk.Name, chk.Error())
@@ -31,7 +31,7 @@ func TestFailingCheck(t *testing.T) {
 			return "", fmt.Errorf("This check failed")
 		},
 	}
-	chk.Process()
+	chk.Execute()
 	if chk.Passed() {
 		t.Fatalf("expected %s to pass, but the test failed with %s", chk.Name, chk.Error())
 	}
